@@ -6,27 +6,102 @@
     <title>Election Results Dashboard</title>
     <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
     <style>
+        /* Global Styles */
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f8f9fa;
         }
         .container {
-            width: 80%;
+            width: 90%;
+            max-width: 1200px;
             margin: auto;
+            padding: 20px;
         }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        h2 {
+            color: #0056b3;
+            margin-top: 30px;
+            text-align: left;
+        }
+
+        /* Table Styles */
         table {
             width: 100%;
             margin: 20px 0;
             border-collapse: collapse;
+            background-color: #ffffff;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
         }
         table, th, td {
-            border: 1px solid black;
+            border: 1px solid #ddd;
         }
         th, td {
-            padding: 10px;
+            padding: 15px;
             text-align: center;
+            font-size: 16px;
         }
-        h2 {
-            text-align: center;
+        th {
+            background-color: #007bff;
+            color: white;
+            font-weight: bold;
+        }
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        tr:hover {
+            background-color: #e9ecef;
+        }
+
+        /* Chart Styles */
+        .chart-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-around;
+            margin-bottom: 30px;
+        }
+        .chart {
+            flex: 1;
+            min-width: 300px;
+            height: 400px;
+            margin: 10px;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            table, thead, tbody, th, td, tr {
+                display: block;
+            }
+            th {
+                display: none;
+            }
+            td {
+                text-align: right;
+                position: relative;
+                padding-left: 50%;
+            }
+            td::before {
+                content: attr(data-label);
+                position: absolute;
+                left: 10px;
+                width: 45%;
+                text-align: left;
+                font-weight: bold;
+                color: #333;
+            }
+            .chart-container {
+                flex-direction: column;
+                align-items: center;
+            }
+            .chart {
+                width: 100%;
+                height: 300px;
+            }
         }
     </style>
 </head>
@@ -35,6 +110,10 @@
         <h1>Election Results Dashboard</h1>
 
         <h2>คะแนนรวม นายก อบจ. (รวมทุกเขต)</h2>
+        <div class="chart-container">
+            <div id="mayorPieChart" class="chart"></div>
+            <div id="mayorBarChart" class="chart"></div>
+        </div>
         <table id="mayorTable">
             <thead>
                 <tr>
@@ -46,6 +125,7 @@
         </table>
 
         <h2>คะแนน สจ. (แยกตามเขต)</h2>
+        <div id="councilCharts"></div>
         <div id="councilTables"></div>
     </div>
 
@@ -55,6 +135,9 @@
         const apiKey = 'AIzaSyAP8KX0thto04Ok1dFE96IIgtH2J0NeKyU';
         const sheetName = 'Results';
         const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${sheetName}?key=${apiKey}`;
+
+        // Load Google Charts
+        google.charts.load('current', { packages: ['corechart', 'bar'] });
 
         async function fetchData() {
             try {
@@ -71,24 +154,21 @@
         }
 
         function processResults(data) {
-            const headers = data[0]; // Header Row
-            const rows = data.slice(1); // Data Rows
+            const headers = data[0];
+            const rows = data.slice(1);
 
-            // แยกข้อมูลสำหรับ นายก อบจ. และ สจ.
-            const mayorScores = Array(7).fill(0); // คะแนนรวมของนายก อบจ. (เบอร์ 1-7)
-            const councilScoresByDistrict = {}; // คะแนน สจ. แยกตามเขต
+            const mayorScores = Array(7).fill(0);
+            const councilScoresByDistrict = {};
 
             rows.forEach(row => {
-                const district = row[0]; // เขตเลือกตั้ง
-                const mayorData = row.slice(1, 8); // คะแนนนายก อบจ. (เบอร์ 1-7)
-                const councilData = row.slice(8, 15); // คะแนน สจ. (เบอร์ 1-7)
+                const district = row[0];
+                const mayorData = row.slice(1, 8);
+                const councilData = row.slice(8, 15);
 
-                // รวมคะแนนนายก อบจ.
                 mayorData.forEach((score, index) => {
                     mayorScores[index] += parseInt(score || 0, 10);
                 });
 
-                // รวมคะแนน สจ. แยกตามเขต
                 if (!councilScoresByDistrict[district]) {
                     councilScoresByDistrict[district] = Array(7).fill(0);
                 }
@@ -97,28 +177,65 @@
                 });
             });
 
-            // อัปเดต Dashboard
+            drawMayorCharts(mayorScores);
             updateMayorTable(mayorScores);
+            drawCouncilCharts(councilScoresByDistrict);
             updateCouncilTables(councilScoresByDistrict);
+        }
+
+        function drawMayorCharts(mayorScores) {
+            const pieData = [['เบอร์', 'คะแนน']];
+            const barData = [['เบอร์', 'คะแนน', { role: 'style' }]];
+            const colors = ['#3366cc', '#dc3912', '#ff9900', '#109618', '#990099', '#0099c6', '#dd4477'];
+
+            mayorScores.forEach((score, index) => {
+                pieData.push([`เบอร์ ${index + 1}`, score]);
+                barData.push([`เบอร์ ${index + 1}`, score, colors[index]]);
+            });
+
+            const pieChart = new google.visualization.PieChart(document.getElementById('mayorPieChart'));
+            const pieOptions = { title: 'คะแนนรวม นายก อบจ. (Pie Chart)', pieHole: 0.4 };
+            pieChart.draw(google.visualization.arrayToDataTable(pieData), pieOptions);
+
+            const barChart = new google.visualization.ColumnChart(document.getElementById('mayorBarChart'));
+            const barOptions = { title: 'คะแนนรวม นายก อบจ. (Bar Chart)', legend: { position: 'none' } };
+            barChart.draw(google.visualization.arrayToDataTable(barData), barOptions);
         }
 
         function updateMayorTable(mayorScores) {
             const mayorTableBody = document.getElementById("mayorTable").querySelector("tbody");
             mayorTableBody.innerHTML = "";
 
-            // จัดรูปแบบข้อมูลและเรียงลำดับคะแนน
-            const sortedScores = mayorScores.map((score, index) => ({
-                number: index + 1,
-                score
-            })).sort((a, b) => b.score - a.score);
-
-            sortedScores.forEach(({ number, score }) => {
+            mayorScores.forEach((score, index) => {
                 const row = document.createElement("tr");
                 row.innerHTML = `
-                    <td>${number}</td>
+                    <td>${index + 1}</td>
                     <td>${score}</td>
                 `;
                 mayorTableBody.appendChild(row);
+            });
+        }
+
+        function drawCouncilCharts(councilScoresByDistrict) {
+            const councilChartsDiv = document.getElementById('councilCharts');
+            councilChartsDiv.innerHTML = '';
+
+            Object.keys(councilScoresByDistrict).forEach(district => {
+                const scores = councilScoresByDistrict[district];
+                const barData = [['เบอร์', 'คะแนน', { role: 'style' }]];
+                const colors = ['#3366cc', '#dc3912', '#ff9900', '#109618', '#990099', '#0099c6', '#dd4477'];
+
+                scores.forEach((score, index) => {
+                    barData.push([`เบอร์ ${index + 1}`, score, colors[index]]);
+                });
+
+                const chartDiv = document.createElement('div');
+                chartDiv.className = 'chart';
+                councilChartsDiv.appendChild(chartDiv);
+
+                const barChart = new google.visualization.ColumnChart(chartDiv);
+                const barOptions = { title: `คะแนน สจ. เขต ${district}`, legend: { position: 'none' } };
+                barChart.draw(google.visualization.arrayToDataTable(barData), barOptions);
             });
         }
 
@@ -128,40 +245,30 @@
 
             Object.keys(councilScoresByDistrict).forEach(district => {
                 const scores = councilScoresByDistrict[district];
-
-                // จัดรูปแบบข้อมูลและเรียงลำดับคะแนน
-                const sortedScores = scores.map((score, index) => ({
-                    number: index + 1,
-                    score
-                })).sort((a, b) => b.score - a.score);
-
-                // สร้างตารางสำหรับแต่ละเขต
                 const table = document.createElement("table");
                 table.innerHTML = `
                     <thead>
-                        <tr>
-                            <th colspan="2">เขตเลือกตั้ง: ${district}</th>
-                        </tr>
                         <tr>
                             <th>เบอร์</th>
                             <th>คะแนน</th>
                         </tr>
                     </thead>
                     <tbody>
-                        ${sortedScores.map(({ number, score }) => `
+                        ${scores.map((score, index) => `
                             <tr>
-                                <td>${number}</td>
+                                <td>${index + 1}</td>
                                 <td>${score}</td>
                             </tr>
-                        `).join("")}
+                        `).join('')}
                     </tbody>
                 `;
                 councilTablesDiv.appendChild(table);
             });
         }
 
-        // Fetch and display data
+        // Fetch and update data every 10 seconds
         fetchData();
+        setInterval(fetchData, 10000);
     </script>
 </body>
 </html>
