@@ -1,7 +1,28 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Election Results Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+</head>
 <body>
-<h1>Hello World</h1>
-<p>I'm hosted with GitHub Pages.</p>
+  <div class="container">
+    <h1>สรุปผลคะแนนเลือกตั้ง</h1>
+    <!-- กราฟคะแนนรวม นายก อบจ. -->
+    <div class="chart-container">
+      <canvas id="mayorChart"></canvas>
+    </div>
+    <!-- กราฟคะแนนรวม ส.จ. แยกตามเขต -->
+    <div class="chart-container">
+      <canvas id="councilChart"></canvas>
+    </div>
+    <!-- กราฟคะแนนรายหน่วย -->
+    <div class="chart-container">
+      <canvas id="unitChart"></canvas>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="script.js"></script>
 </body>
 </html>
