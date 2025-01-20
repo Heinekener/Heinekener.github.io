@@ -9,13 +9,13 @@
         body {
             font-family: Arial, sans-serif;
         }
-        .chart-container {
+        .container {
             width: 80%;
             margin: auto;
         }
         table {
             width: 100%;
-            margin-top: 20px;
+            margin: 20px 0;
             border-collapse: collapse;
         }
         table, th, td {
@@ -25,35 +25,32 @@
             padding: 10px;
             text-align: center;
         }
+        h2 {
+            text-align: center;
+        }
     </style>
 </head>
 <body>
-    <h1>Election Results Dashboard</h1>
+    <div class="container">
+        <h1>Election Results Dashboard</h1>
 
-    <div class="chart-container" id="chart_div"></div>
+        <h2>คะแนนรวม นายก อบจ. (รวมทุกเขต)</h2>
+        <table id="mayorTable">
+            <thead>
+                <tr>
+                    <th>เบอร์</th>
+                    <th>คะแนน</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
 
-    <table>
-        <thead>
-            <tr>
-                <th>เขตเลือกตั้ง</th>
-                <th>คะแนนนายก อบจ.</th>
-                <th>คะแนน สจ.</th>
-            </tr>
-        </thead>
-        <tbody id="resultsBody">
-            <!-- Data rows will be dynamically inserted here -->
-        </tbody>
-    </table>
+        <h2>คะแนน สจ. (แยกตามเขต)</h2>
+        <div id="councilTables"></div>
+    </div>
 
     <script>
-        // สร้างการโหลด Google Charts
-        google.charts.load('current', {
-            packages: ['corechart', 'bar']
-        });
-
-        google.charts.setOnLoadCallback(drawChart);
-
-        // ดึงข้อมูลจาก Google Sheets
+        // Google Sheets API Configuration
         const sheetId = '1H-tqTVqLrFPzoiVzoTaSdR7lpk5RVABJmbjA0tXp-SY';
         const apiKey = 'AIzaSyAP8KX0thto04Ok1dFE96IIgtH2J0NeKyU';
         const sheetName = 'Results';
@@ -67,77 +64,104 @@
                     console.error("ไม่มีข้อมูลใน Google Sheet หรือ Sheet ว่าง");
                     return;
                 }
-
-                displayResults(data.values);
-                drawChart(data.values);
+                processResults(data.values);
             } catch (error) {
                 console.error("เกิดข้อผิดพลาดในการดึงข้อมูล:", error);
             }
         }
 
-        function displayResults(data) {
-            const resultsBody = document.getElementById("resultsBody");
+        function processResults(data) {
+            const headers = data[0]; // Header Row
+            const rows = data.slice(1); // Data Rows
 
-            // ลบแถวที่มีอยู่ก่อน
-            resultsBody.innerHTML = "";
-
-            const rows = data.slice(1); // แถวข้อมูล (ไม่รวม Header)
+            // แยกข้อมูลสำหรับ นายก อบจ. และ สจ.
+            const mayorScores = Array(7).fill(0); // คะแนนรวมของนายก อบจ. (เบอร์ 1-7)
+            const councilScoresByDistrict = {}; // คะแนน สจ. แยกตามเขต
 
             rows.forEach(row => {
                 const district = row[0]; // เขตเลือกตั้ง
-                const mayorScores = row.slice(1, 8); // คะแนนของนายก อบจ. 7 เบอร์
-                const councilScores = row.slice(8, 15); // คะแนนของ สจ. 7 เบอร์
+                const mayorData = row.slice(1, 8); // คะแนนนายก อบจ. (เบอร์ 1-7)
+                const councilData = row.slice(8, 15); // คะแนน สจ. (เบอร์ 1-7)
 
-                const totalMayorScore = mayorScores.reduce((acc, score) => acc + parseInt(score || 0, 10), 0);
-                const totalCouncilScore = councilScores.reduce((acc, score) => acc + parseInt(score || 0, 10), 0);
+                // รวมคะแนนนายก อบจ.
+                mayorData.forEach((score, index) => {
+                    mayorScores[index] += parseInt(score || 0, 10);
+                });
 
-                const rowElement = document.createElement("tr");
-                rowElement.innerHTML = `
-                    <td>${district}</td>
-                    <td>${totalMayorScore}</td>
-                    <td>${totalCouncilScore}</td>
+                // รวมคะแนน สจ. แยกตามเขต
+                if (!councilScoresByDistrict[district]) {
+                    councilScoresByDistrict[district] = Array(7).fill(0);
+                }
+                councilData.forEach((score, index) => {
+                    councilScoresByDistrict[district][index] += parseInt(score || 0, 10);
+                });
+            });
+
+            // อัปเดต Dashboard
+            updateMayorTable(mayorScores);
+            updateCouncilTables(councilScoresByDistrict);
+        }
+
+        function updateMayorTable(mayorScores) {
+            const mayorTableBody = document.getElementById("mayorTable").querySelector("tbody");
+            mayorTableBody.innerHTML = "";
+
+            // จัดรูปแบบข้อมูลและเรียงลำดับคะแนน
+            const sortedScores = mayorScores.map((score, index) => ({
+                number: index + 1,
+                score
+            })).sort((a, b) => b.score - a.score);
+
+            sortedScores.forEach(({ number, score }) => {
+                const row = document.createElement("tr");
+                row.innerHTML = `
+                    <td>${number}</td>
+                    <td>${score}</td>
                 `;
-                resultsBody.appendChild(rowElement);
+                mayorTableBody.appendChild(row);
             });
         }
 
-        // ฟังก์ชันแสดงกราฟ
-        function drawChart(data) {
-            const rows = data.slice(1); // ข้อมูลจริงจาก Google Sheets (ไม่รวม Header)
+        function updateCouncilTables(councilScoresByDistrict) {
+            const councilTablesDiv = document.getElementById("councilTables");
+            councilTablesDiv.innerHTML = "";
 
-            // เตรียมข้อมูลให้ Google Charts
-            const chartData = [
-                ['เขตเลือกตั้ง', 'คะแนนนายก อบจ.', 'คะแนน สจ.']
-            ];
+            Object.keys(councilScoresByDistrict).forEach(district => {
+                const scores = councilScoresByDistrict[district];
 
-            rows.forEach(row => {
-                const district = row[0];
-                const mayorScores = row.slice(1, 8);
-                const councilScores = row.slice(8, 15);
-                const totalMayorScore = mayorScores.reduce((acc, score) => acc + parseInt(score || 0, 10), 0);
-                const totalCouncilScore = councilScores.reduce((acc, score) => acc + parseInt(score || 0, 10), 0);
+                // จัดรูปแบบข้อมูลและเรียงลำดับคะแนน
+                const sortedScores = scores.map((score, index) => ({
+                    number: index + 1,
+                    score
+                })).sort((a, b) => b.score - a.score);
 
-                chartData.push([district, totalMayorScore, totalCouncilScore]);
+                // สร้างตารางสำหรับแต่ละเขต
+                const table = document.createElement("table");
+                table.innerHTML = `
+                    <thead>
+                        <tr>
+                            <th colspan="2">เขตเลือกตั้ง: ${district}</th>
+                        </tr>
+                        <tr>
+                            <th>เบอร์</th>
+                            <th>คะแนน</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${sortedScores.map(({ number, score }) => `
+                            <tr>
+                                <td>${number}</td>
+                                <td>${score}</td>
+                            </tr>
+                        `).join("")}
+                    </tbody>
+                `;
+                councilTablesDiv.appendChild(table);
             });
-
-            // สร้าง Google Chart
-            const dataTable = google.visualization.arrayToDataTable(chartData);
-            const options = {
-                title: 'ผลการเลือกตั้งในแต่ละเขต',
-                hAxis: {
-                    title: 'เขตเลือกตั้ง',
-                    minValue: 0
-                },
-                vAxis: {
-                    title: 'คะแนนรวม'
-                },
-                bars: 'vertical'
-            };
-            const chart = new google.visualization.ColumnChart(document.getElementById('chart_div'));
-            chart.draw(dataTable, options);
         }
 
-        fetchData(); // เรียกใช้ฟังก์ชันดึงข้อมูล
+        // Fetch and display data
+        fetchData();
     </script>
 </body>
 </html>
