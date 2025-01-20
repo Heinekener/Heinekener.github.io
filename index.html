@@ -186,7 +186,7 @@
         function drawMayorCharts(mayorScores) {
             const pieData = [['เบอร์', 'คะแนน']];
             const barData = [['เบอร์', 'คะแนน', { role: 'style' }]];
-            const colors = ['#3366cc', '#dc3912', '#ff9900', '#109618', '#990099', '#0099c6', '#dd4477'];
+            const colors = ['#dc3912', '#dd4477', '#ff9900', '#3366cc', '#990099', '#0099c6', '#109618'];
 
             mayorScores.forEach((score, index) => {
                 pieData.push([`เบอร์ ${index + 1}`, score]);
@@ -194,7 +194,7 @@
             });
 
             const pieChart = new google.visualization.PieChart(document.getElementById('mayorPieChart'));
-            const pieOptions = { title: 'คะแนนรวม นายก อบจ. (Pie Chart)', pieHole: 0.4 };
+            const pieOptions = { title: 'คะแนนรวม นายก อบจ. (Pie Chart)', pieHole: 0.4, colors: colors };
             pieChart.draw(google.visualization.arrayToDataTable(pieData), pieOptions);
 
             const barChart = new google.visualization.ColumnChart(document.getElementById('mayorBarChart'));
@@ -223,7 +223,7 @@
             Object.keys(councilScoresByDistrict).forEach(district => {
                 const scores = councilScoresByDistrict[district];
                 const barData = [['เบอร์', 'คะแนน', { role: 'style' }]];
-                const colors = ['#3366cc', '#dc3912', '#ff9900', '#109618', '#990099', '#0099c6', '#dd4477'];
+                const colors = ['#dc3912', '#dd4477', '#ff9900', '#3366cc', '#990099', '#0099c6', '#109618'];
 
                 scores.forEach((score, index) => {
                     barData.push([`เบอร์ ${index + 1}`, score, colors[index]]);
