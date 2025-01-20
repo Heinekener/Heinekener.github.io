@@ -234,7 +234,7 @@
                 councilChartsDiv.appendChild(chartDiv);
 
                 const barChart = new google.visualization.ColumnChart(chartDiv);
-                const barOptions = { title: `คะแนน สจ. เขต ${district}`, legend: { position: 'none' } };
+                const barOptions = { title: `คะแนน สจ. ${district}`, legend: { position: 'none' } };
                 barChart.draw(google.visualization.arrayToDataTable(barData), barOptions);
             });
         }
